@@ -11,7 +11,6 @@ ros2 pkg create <nombre_del_paquete> --build-type ament_python --dependencies rc
 ros2 pkg create percepcion --build-type ament_python --dependencies rclpy
 ros2 pkg create planeacion --build-type ament_python --dependencies rclpy 
 ros2 pkg create control --build-type ament_python --dependencies rclpy 
-
 ```
 
 ```bash
@@ -97,3 +96,89 @@ colcon buil
 cd movilRobot_ws/
 colcon build --symlink-install
 ```
+### Creacion del Publisher
+Creamos un workspace llamado `moveTurtle_ws`
+
+```bash
+cd
+mkdir -p ~/moveTurtle_ws/src
+cd ~/moveTurtle_ws/src
+```
+
+Creamos un paquete de python para almacenar los nodos
+```bash
+ros2 pkg create movimiento
+--build-type ament_python --dependencies rclpy
+```
+
+Podemos crear un nodo desde el terminal tambien 
+```bash
+cd movimiento/movimiento
+touch simple_publisher.py
+```
+
+```bash
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist
+
+class MoverTortuga(Node):
+    def __init__(self):
+        super().__init__('mover_tortuga')
+        
+        self.publisher_ = self.create_publisher(Twist, '/turtle1/cmd_vel', 10)
+        self.timer = self.create_timer(1.0, self.mover)
+
+    def mover(self):
+        msg = Twist()
+        msg.linear.x = 2.0  # Velocidad hacia adelante
+        msg.angular.z = 1.0  # Giro
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Velocidad Lineal: {msg.linear.x}, Velocidad Angular: {msg.angular.z}')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = MoverTortuga()
+
+    rclpy.spin(node)
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+En package.xml se debe agregar la dependencia de los mensajes `geometry_msgs`
+```bash
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+```
+
+En setup.py debemos agregar el ejecutable
+```bash
+        'console_scripts': [
+            'mover_tortuga = movimiento.simple_publisher:main',
+        ],
+```
+Asegurarnos de guardar los cambios
+Compilar el espacio de trabajo
+```bash
+cd ~/moveTurtle_ws
+colcon build
+source install/setup.bash
+```
+Probar el algoritmo
+En un terminal
+```bash
+ros2 run turtlesim turtlesim_node
+```
+
+```bash
+ros2 run movimiento mover_tortuga
+```
+
+```bash
+
+```
+
