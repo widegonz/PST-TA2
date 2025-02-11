@@ -107,8 +107,7 @@ cd ~/moveTurtle_ws/src
 
 Creamos un paquete de python para almacenar los nodos
 ```bash
-ros2 pkg create movimiento
---build-type ament_python --dependencies rclpy
+ros2 pkg create movimiento --build-type ament_python --dependencies rclpy
 ```
 
 Podemos crear un nodo desde el terminal tambien 
@@ -134,7 +133,7 @@ class MoverTortuga(Node):
         msg.linear.x = 2.0  # Velocidad hacia adelante
         msg.angular.z = 1.0  # Giro
         self.publisher_.publish(msg)
-        self.get_logger().info(f'Velocidad Lineal: {msg.linear.x}, Velocidad Angular: {msg.angular.z}')
+        self.get_logger().info('Moviendo la tortuga')
 
 def main(args=None):
     rclpy.init(args=args)
