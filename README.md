@@ -161,6 +161,7 @@ En setup.py debemos agregar el ejecutable
         ],
 ```
 Asegurarnos de guardar los cambios
+
 Compilar el espacio de trabajo
 ```bash
 cd ~/moveTurtle_ws
@@ -168,6 +169,7 @@ colcon build
 source install/setup.bash
 ```
 Probar el algoritmo
+
 En un terminal
 ```bash
 ros2 run turtlesim turtlesim_node
@@ -176,8 +178,80 @@ ros2 run turtlesim turtlesim_node
 ```bash
 ros2 run movimiento mover_tortuga
 ```
+### Creacion del Suscriber
 
 ```bash
+cd ~/moveTurtle_ws/src/movimiento/movimiento
+touch simple_suscriber.py
+```
+Dentro agregamos lo siguiente:
 
+```bash
+import rclpy
+from rclpy.node import Node
+from turtlesim.msg import Pose  # Mensaje que envía la posición de la tortuga
+
+class SubscriptorTortuga(Node):
+    def __init__(self):
+        super().__init__('subscriptor_tortuga')
+        
+        # Crear el subscriber
+        self.subscription = self.create_subscription(
+            Pose,                      # Tipo de mensaje
+            '/turtle1/pose',           # Tópico al que se suscribe
+            self.pose_callback,        # Función de callback
+            10                         # Tamaño de la cola
+        )
+        self.subscription  # Evita que el garbage collector elimine la suscripción
+
+    def pose_callback(self, msg):
+        # Muestra la posición en la terminal
+        self.get_logger().info(f'Posición: x={msg.x:.2f}, y={msg.y:.2f}, theta={msg.theta:.2f}')
+
+def main(args=None):
+    rclpy.init(args=args)  # Inicializa ROS 2
+    node = SubscriptorTortuga()  # Crea el nodo
+    rclpy.spin(node)  # Mantiene el nodo en ejecución
+    node.destroy_node()  # Elimina el nodo al finalizar
+    rclpy.shutdown()  # Apaga ROS 2
+
+if __name__ == '__main__':
+    main()
 ```
 
+En package.xml se debe agregar la dependencia de los mensajes `geometry_msgs`
+```bash
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+```
+
+En setup.py debemos agregar el ejecutable
+```bash
+        'console_scripts': [
+            'mover_tortuga = movimiento.simple_publisher:main',
+            'escuchar_pose = movimiento.simple_suscriber:main',
+        ],
+```
+Asegurarnos de guardar los cambios
+
+Compilar el espacio de trabajo
+```bash
+cd ~/moveTurtle_ws
+colcon build
+source install/setup.bash
+```
+Probar el algoritmo
+
+En un terminal
+```bash
+ros2 run turtlesim turtlesim_node
+```
+En otro terminal mover la tortuga:
+```bash
+ros2 run movimiento mover_tortuga
+```
+
+En un 3er terminal agregar el Suscriber
+```bash
+ros2 run movimiento escuchar_pose
+```
