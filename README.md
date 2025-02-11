@@ -82,3 +82,18 @@ setup(
 ```bash
 'nombre_de_ejecutable = paquete.modulo:funcion'
 ```
+Instalar colcon build
+```bash
+sudo apt install python3-colcon-common-extensions
+```
+Compilar un workspace
+
+```bash
+cd movilRobot_ws/
+colcon buil
+```
+
+```bash
+cd movilRobot_ws/
+colcon build --symlink-install
+```
