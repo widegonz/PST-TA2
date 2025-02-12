@@ -344,21 +344,21 @@ if __name__ == '__main__':
 ```
 
 ### Servicio y Cliente
-Para ejemplificar esto primero vamos a crear un nuevo paquete
+Cuando trabajamos con servicios, una buena practica de programacion es manejar los servicios por defecto, sin embargo, en caso de querer agregar servicios personalizados, debemos crear un paquete de C++ para poder escribir estos servicios.
 
+Creamos un paquete de C++
 ```bash
 cd ~/moveTurtle_ws/src
-ros2 pkg create --build-type ament_python  serv_cli --dependencies rclpy
+ros2 pkg create --build-type ament_cmake tutorial_interfaces
 ```
 
-Dentro de este paquete tenemos que crear una carpeta llamada srv
-
+Accedemos al paquete y creamos una carpeta llamada `srv`
 ```bash
-cd ~/moveTurtle_ws/src/serv_cli
+cd ~/moveTurtle_ws/src/tutorial_interfaces
 mkdir srv
 ```
+Creamos el archivo del servicio
 
-Esta carpeta contendra los servicios que nosotros creemos, aunque una buena practica de programacion es usar los servicios por defecto, abrá momentos en los cuales querremos agregar nuestros propios servicios.
 ```bash
 cd srv
 touch AddThreeInts.srv
@@ -374,22 +374,49 @@ int64 sum
 ```
 Este es tu servicio personalizado que solicita tres enteros llamados `a`, `b`, y `c`, y responde con un entero llamado `sum`.
 
+Para convertir las interfaces que has definido en código específico de un lenguaje (como C++ y Python) para que puedan ser utilizadas en esos lenguajes, añade las siguientes líneas a CMakeLists.txt:
+```bash
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/AddThreeInts.srv"
+)
+```
+
+Debemos modificar el package.xml tambien con la siguiente informacion:
+```bash
+<buildtool_depend>rosidl_default_generators</buildtool_depend>
+<exec_depend>rosidl_default_runtime</exec_depend>
+<member_of_group>rosidl_interface_packages</member_of_group>
+```
+
 Para confirmar que el servicio se agrego correctamente necesitamos compilar el paquete con `colcon build` y usar el siguiente codigo:
 
 ```bash
-ros2 interface show serv_cli/srv/AddThreeInts
+source install/setup.bash
+ros2 interface show tutorial_interfaces/srv/AddThreeInts
 ```
 
-Agregamos 2 nodos para la creacion del servicio y el cliente
+Deberia mostrarse en el terminal lo siguiente:
 ```bash
-cd ~/moveTurtle_ws/src/serv_cli/serv_cli
+int64 a
+int64 b
+int64 c
+---
+int64 sum
+```
+Con esto ya tenemos lo necesario para usar ese servicio en los nodos
+
+Agregamos 2 nodos para la creacion del servicio y el cliente en el paquete movimiento
+```bash
+cd ~/moveTurtle_ws/src/movimiento/movimiento
 touch servicio.py
 touch cliente.py
 ```
 
 Dentro del nodo servicio.py va esta informacion:
 ```bash
-from serv_cli.srv import AddThreeInts                                                           
+from tutorial_interfaces.srv import AddThreeInts                                                           
 
 import rclpy
 from rclpy.node import Node
@@ -422,7 +449,7 @@ if __name__ == '__main__':
 
 Dentro del nodo cliente.py agregamos este codigo:
 ```bash
-from serv_cli.srv import AddThreeInts                            
+from tutorial_interfaces.srv import AddThreeInts                            
 import sys
 import rclpy
 from rclpy.node import Node
@@ -471,4 +498,34 @@ def main(args=None):
 if __name__ == '__main__':
     main()
 ```
+
+Se agregan los ejecutables al setup.py
+```bash
+    'servicio = movimiento.servicio:main',
+    'cliente = movimiento.cliente:main',
+```
+
+Se debe de agregar una dependencia en el paquete de python
+```bash
+<exec_depend>tutorial_interfaces</exec_depend>
+```
+
+Compilamos el paquete
+```bash
+colcon build --packages-select movimiento
+```
+
+Abrimos 2 terminales y probamos el codigo
+```bash
+ros2 run movimiento servicio
+```
+
+```bash
+ros2 run movimiento cliente 2 3 1
+```
+
+### Implementando Servicios Existentes
+
+
+
 
