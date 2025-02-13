@@ -449,54 +449,48 @@ if __name__ == '__main__':
 
 Dentro del nodo cliente.py agregamos este codigo:
 ```bash
-from tutorial_interfaces.srv import AddThreeInts                            
+from tutorial_interfaces.srv import AddThreeInts
 import sys
 import rclpy
 from rclpy.node import Node
-
+from functools import partial
 
 class MinimalClientAsync(Node):
-
     def __init__(self):
-        super().__init__('minimal_client_async')
-        self.cli = self.create_client(AddThreeInts, 'add_three_ints')       
-        while not self.cli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service not available, waiting again...')
-        self.req = AddThreeInts.Request()                                   
+        super().__init__('nodo_async')
+        self.cliente = self.create_client(AddThreeInts, 'add_three_ints')
 
     def send_request(self):
-        self.req.a = int(sys.argv[1])
-        self.req.b = int(sys.argv[2])
-        self.req.c = int(sys.argv[3])                                       
-        self.future = self.cli.call_async(self.req)
+        while not self.cliente.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service not available, waiting again...')
+        
+        req = AddThreeInts.Request()
+        req.a = int(sys.argv[1])
+        req.b = int(sys.argv[2])
+        req.c = int(sys.argv[3])
 
+        future = self.cliente.call_async(req)
+        future.add_done_callback(partial(self.callback_service, req))
 
+    def callback_service(self, req, future):
+        try:
+            response = future.result()
+            self.get_logger().info(f'Result of add_three_ints: {req.a} + {req.b} + {req.c} = {response.sum}')
+        except Exception as e:
+            self.get_logger().error(f'Service call failed: {e}')
+        finally:
+            rclpy.shutdown()
+            
 def main(args=None):
     rclpy.init(args=args)
-
-    minimal_client = MinimalClientAsync()
-    minimal_client.send_request()
-
-    while rclpy.ok():
-        rclpy.spin_once(minimal_client)
-        if minimal_client.future.done():
-            try:
-                response = minimal_client.future.result()
-            except Exception as e:
-                minimal_client.get_logger().info(
-                    'Service call failed %r' % (e,))
-            else:
-                minimal_client.get_logger().info(
-                    'Result of add_three_ints: for %d + %d + %d = %d' %                                
-                    (minimal_client.req.a, minimal_client.req.b, minimal_client.req.c, response.sum))  
-            break
-
-    minimal_client.destroy_node()
-    rclpy.shutdown()
-
+    nodo = MinimalClientAsync()
+    nodo.send_request()
+    rclpy.spin(nodo)  # Esperar hasta que termine el callback
+    nodo.destroy_node()
 
 if __name__ == '__main__':
     main()
+
 ```
 
 Se agregan los ejecutables al setup.py
@@ -525,7 +519,91 @@ ros2 run movimiento cliente 2 3 1
 ```
 
 ### Implementando Servicios Existentes
+En este caso vamos a implementar el servicio del Turtlesim que es capaz de cambiar el camino que va dejando la totuga cuando se mueve.
 
+```bash
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
+from turtlesim.srv import SetPen
+from functools import partial
+
+class MoverTortuga(Node):
+    def __init__(self):
+        super().__init__("turtle_controller")
+
+        self.previous_x = 0
+
+        self.cmd_vel_publisher_ = self.create_publisher(Twist, "/turtle1/cmd_vel", 10)
+        self.pose_subscriber_ = self.create_subscription(Pose, "/turtle1/pose", self.pose_callback, 10)
+        self.get_logger().info("Controlador Iniciado")
+
+    def pose_callback(self, pose):
+        cmd = Twist()
+        if pose.x > 9.0 or pose.x < 2.0 or pose.y > 9.0 or pose.y < 2.0:
+            cmd.linear.x = 1.0
+            cmd.angular.z = 0.9
+        else:
+            cmd.linear.x = 5.0
+            cmd.angular.z = 0.0
+        self.cmd_vel_publisher_.publish(cmd)
+
+        #Para que el servicio sea llamado una sola vez
+        if pose.x > 5.5 and self.previous_x <= 5.5:
+            self.previous_x = pose.x
+            self.get_logger().info("Cambiando el color a rojo")
+            self.call_set_pen_service(255,0,0,3,0)
+        elif pose.x <= 5.5 and self.previous_x > 5.5:
+            self.previous_x = pose.x
+            self.get_logger().info("Cambiando el color a verde")
+            self.call_set_pen_service(0,255,0,3,0)
+
+    def call_set_pen_service(self, r, g, b, width, off):
+        #Creamos el cliente
+        cliente = self.create_client(SetPen, "/turtle1/set_pen")
+        
+        #Nos aseguramos de que el servicio esta disponible
+        while not cliente.wait_for_service(1.0):
+            self.get_logger().warn("Esperando por el servicio...")
+        
+        #Se crea la solicitud
+        request = SetPen.Request()
+        request.r = r
+        request.b = b
+        request.g = g
+        request.width = width
+        request.off = off
+
+        #Enviamos la solicitud al servicio
+        future = cliente.call_async(request)
+
+        #Se crea un callback para manejar la respuesta cuando el servicio la envia
+        future.add_done_callback(partial(self.callback_set_pen))
+
+
+    def callback_set_pen(self, future):
+        #Nos aseguramos de manejar los errores que puedan existir al momento de que el servicio responde
+        try:
+            #Si todo esta bien, obtenemos la respuesta del servicio
+            respuesta = future.result()
+        except Exception as e:
+            self.get_logger().error(f"La llamada al servicio fallo: {e}")
+
+    
+def main(args=None):
+    rclpy.init(args=args)
+    node = MoverTortuga()
+
+    rclpy.spin(node)
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+
+```
 
 
 
